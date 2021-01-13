@@ -1,0 +1,1 @@
+docker attach cloud1x2bet_client_1

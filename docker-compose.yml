@@ -1,0 +1,64 @@
+version: "3"
+services:
+  db:
+    image: mysql:5.7
+    ports:
+      - "32000:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - ./db:/docker-entrypoint-initdb.d/:rw
+      - mysql_db:/var/lib/mysql
+
+  auth:
+    build: ./auth
+    ports:
+      - "7778:5000"
+    depends_on:
+      - db
+
+  service:
+    build: ./service
+    ports:
+      - "7777:5000"
+    depends_on:
+      - db
+  
+  admin:
+    build: ./admin
+    ports:
+      - "5000:5000"
+    depends_on:
+      - db
+
+  client:
+    build: ./client
+    depends_on:
+      - service
+      - admin
+      - auth
+    stdin_open: true
+    tty: true
+
+  influxdb:
+    image: influxdb
+    ports:
+      - "8086:8086"
+
+  adapter:
+    build: ./adapter
+    ports:
+      - 4000:80
+    depends_on:
+      - db
+      - influxdb
+
+  grafana:
+    image: grafana/grafana
+    ports:
+      - 80:3000
+    volumes:
+      - ./grafana.db:/var/lib/grafana/grafana.db
+
+volumes:
+  mysql_db:
