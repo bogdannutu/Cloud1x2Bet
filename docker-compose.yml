@@ -7,8 +7,7 @@ services:
       - "1111:8080"
       - "1443:1443"
     networks:
-      - kong-net
-      - backend_frontend
+      - kong-network
     links:
       - db:db
       - influxdb:influxdb
@@ -23,8 +22,10 @@ services:
       - ./db:/docker-entrypoint-initdb.d/:rw
       - mysql_db:/var/lib/mysql
     networks:
-      - kong-net
-      - backend_frontend
+      - admin-db-network
+      - auth-db-network
+      - service-db-network
+      - adapter-db-network
 
   auth:
     build: ./auth
@@ -33,8 +34,8 @@ services:
     depends_on:
       - db
     networks:
-      - kong-net
-      - backend_frontend
+      - kong-network
+      - auth-db-network
 
   service:
     build: ./service
@@ -43,8 +44,8 @@ services:
     depends_on:
       - db
     networks:
-      - kong-net
-      - backend_frontend
+      - kong-network
+      - service-db-network
 
   admin:
     build: ./admin
@@ -53,16 +54,17 @@ services:
     depends_on:
       - db
     networks:
-      - kong-net
-      - backend_frontend
+      - kong-network
+      - admin-db-network
+      - admin-adapter-network
 
   influxdb:
     image: influxdb
     ports:
       - "8086:8086"
     networks:
-      - kong-net
-      - backend_frontend
+      - adapter-influxdb-network
+      - grafana-influxdb-network
 
   adapter:
     build: ./adapter
@@ -72,10 +74,11 @@ services:
       - db
       - influxdb
     networks:
-      - kong-net
-      - backend_frontend
+      - adapter-db-network
+      - adapter-influxdb-network
+      - admin-adapter-network
 
-  db2:
+  kong_db:
     image: postgres:9.5
     environment:
       POSTGRES_DB: ${KONG_PG_DATABASE:-kong}
@@ -95,16 +98,15 @@ services:
     stdin_open: true
     tty: true
     networks:
-      - kong-net
-      - backend_frontend
+      - kong-network
     volumes:
-      - kong_data:/var/lib/postgresql/data
+      - postgres_db:/var/lib/postgresql/data
 
   kong:
     image: "${KONG_DOCKER_TAG:-kong:latest}"
     user: "${KONG_USER:-kong}"
     depends_on:
-      - db2
+      - kong_db
     links:
       - adminer:adminer
       - admin:admin
@@ -114,10 +116,10 @@ services:
       KONG_ADMIN_ACCESS_LOG: /dev/stdout
       KONG_ADMIN_ERROR_LOG: /dev/stderr
       KONG_ADMIN_LISTEN: '0.0.0.0:8001'
-      KONG_CASSANDRA_CONTACT_POINTS: db2
+      KONG_CASSANDRA_CONTACT_POINTS: kong_db
       KONG_DATABASE: postgres
       KONG_PG_DATABASE: ${KONG_PG_DATABASE:-kong}
-      KONG_PG_HOST: db2
+      KONG_PG_HOST: kong_db
       KONG_PG_USER: ${KONG_PG_USER:-kong}
       KONG_PROXY_ACCESS_LOG: /dev/stdout
       KONG_PROXY_ERROR_LOG: /dev/stderr
@@ -136,8 +138,7 @@ services:
       retries: 10
     restart: on-failure
     networks:
-      - kong-net
-      - backend_frontend
+      - kong-network
     deploy:
       restart_policy:
         condition: on-failure
@@ -148,17 +149,16 @@ services:
     links:
       - kong:kong
     environment:
-      KONG_PG_HOST: db2
+      KONG_PG_HOST: kong_db
       KONG_PG_PASSWORD_FILE: /run/secrets/kong_postgres_password
       KONG_PG_USER: ${KONG_PG_USER:-kong}
       KONG_PROXY_ACCESS_LOG: /dev/stdout
       KONG_PROXY_ERROR_LOG: /dev/stderr
       NODE_ENV: production
     depends_on:
-      - db2
+      - kong_db
     networks:
-      - kong-net
-      - backend_frontend
+      - kong-network
     ports:
       - "1337:1337"
     secrets:
@@ -171,36 +171,40 @@ services:
       - kong_postgres_password
     restart: on-failure
     environment:
-      KONG_PG_HOST: db2
+      KONG_PG_HOST: kong_db
       KONG_PG_PASSWORD_FILE: /run/secrets/kong_postgres_password
       KONG_PG_USER: ${KONG_PG_USER:-kong}
       KONG_PROXY_ACCESS_LOG: /dev/stdout
       KONG_PROXY_ERROR_LOG: /dev/stderr
     networks:
-      - kong-net
-      - backend_frontend
+      - kong-network
     links:
-      - db2
+      - kong_db
     depends_on:
-      - db2
+      - kong_db
 
   grafana:
     image: grafana/grafana
     ports:
       - 80:3000
     networks:
-      - kong-net
-      - backend_frontend
+      - grafana-influxdb-network
     volumes:
       - ./grafana.db:/var/lib/grafana/grafana.db
 
 volumes:
   mysql_db:
-  kong_data:
+  postgres_db:
 
 networks:
-  backend_frontend:
-  kong-net:
+  kong-network:
+  admin-db-network:
+  auth-db-network:
+  service-db-network:
+  adapter-db-network:
+  adapter-influxdb-network:
+  grafana-influxdb-network:
+  admin-adapter-network:
 
 secrets:
   kong_postgres_password:

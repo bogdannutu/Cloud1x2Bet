@@ -1,6 +1,7 @@
 import mysql.connector
 import time
 import requests
+import sys
 
 from influxdb import InfluxDBClient
 from datetime import datetime
@@ -51,7 +52,7 @@ if __name__ == '__main__':
     time.sleep(10)
     db_client = influxDB_connection()
 
-    path = "http://admin:5000/teams"
+    path = sys.argv[1] + "/teams"
     response = requests.get(path)
     while response.status_code != 200:
         time.sleep(1)
