@@ -28,7 +28,7 @@ services:
       - adapter-db-network
 
   auth:
-    build: ./auth
+    image: bogdannutu/cloud1x2bet_auth
     ports:
       - "7778:5000"
     depends_on:
@@ -38,7 +38,7 @@ services:
       - auth-db-network
 
   service:
-    build: ./service
+    image: bogdannutu/cloud1x2bet_service
     ports:
       - "7777:5000"
     depends_on:
@@ -48,7 +48,7 @@ services:
       - service-db-network
 
   admin:
-    build: ./admin
+    image: bogdannutu/cloud1x2bet_admin
     ports:
       - "5000:5000"
     depends_on:
@@ -67,7 +67,7 @@ services:
       - grafana-influxdb-network
 
   adapter:
-    build: ./adapter
+    image: bogdannutu/cloud1x2bet_adapter
     ports:
       - 4000:80
     depends_on:
